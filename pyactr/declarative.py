@@ -114,12 +114,12 @@ class DecMemBuffer(buffers.Buffer):
     Declarative memory buffer.
     """
 
-    def __init__(self, decmem=None, data=None, finst=0):
+    def __init__(self, decmem=None, data=None, finst=0, embedding=None):
         buffers.Buffer.__init__(self, decmem, data)
         self.recent = collections.deque()
         self.__finst = finst
         self.activation = None #activation of the last retrieved element
-
+        self.embeddings = embedding
         #parameters
         self.model_parameters = {}
 
@@ -224,7 +224,8 @@ class DecMemBuffer(buffers.Buffer):
                     continue
                 if math.isnan(A_bll):
                     raise utilities.ACTRError("The following chunk cannot receive base activation: %s. The reason is that one of its traces did not appear in a past moment." % chunk)
-                A_sa = utilities.spreading_activation(chunk, buffers, self.dm, model_parameters["buffer_spreading_activation"], model_parameters["strength_of_association"], model_parameters["spreading_activation_restricted"], model_parameters["association_only_from_chunks"])
+                A_sa = utilities.spreading_activation(chunk, buffers, self.dm, model_parameters["buffer_spreading_activation"], model_parameters["strength_of_association"],
+                        model_parameters["spreading_activation_restricted"], model_parameters["association_only_from_chunks"], embedding=self.embeddings)
                 inst_noise = utilities.calculate_instantaneous_noise(model_parameters["instantaneous_noise"])
                 A = A_bll + A_sa + A_pm + inst_noise #chunk.activation is the manually specified activation, potentially used by the modeller
 

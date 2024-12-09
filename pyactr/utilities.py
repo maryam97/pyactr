@@ -10,6 +10,7 @@ import warnings
 
 import numpy as np
 import pyparsing as pp
+from scipy import spatial
 
 
 #for querying buffers
@@ -498,7 +499,7 @@ def find_chunks(chunk, only_chunks=True):
                     chunk_dict[x[0]] = val
     return chunk_dict
 
-def calculate_strength_association(chunk, otherchunk, dm, strength_of_association, restricted='', only_chunks=True):
+def calculate_strength_association(chunk, otherchunk, dm, strength_of_association, restricted='', only_chunks=True, embedding=None):
     """
     Calculate S_{ji} = S - ln((1+slots_j)/slots_ij), where j=chunk, i=otherchunk
 
@@ -507,7 +508,23 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
     chunk_dict = find_chunks(otherchunk, only_chunks)
     slotvalues = chunk_dict.items()
     values = chunk_dict.values()
-    if chunk != otherchunk and chunk not in values:
+
+    cosine_sim = 0  # between 0 and 1
+    if embedding is not None:
+        # for ch in values:
+        #     if ch != chunk and ch.typename == chunk.typename:
+        #         pair = ch
+        chunk_str, pair_str = str(chunk), str(otherchunk[0][1])
+
+        if chunk_str in embedding.keys() and pair_str in embedding.keys():
+            cosine_sim += max(0.0, 1 - spatial.distance.cosine(embedding[chunk_str], embedding[pair_str]))
+            print(f"cosine_sim of {chunk_str} and {pair_str}=", cosine_sim)
+
+        if cosine_sim > 0.0:
+            print("cosine_sim=", cosine_sim)
+            strength_of_association *= cosine_sim
+
+    if chunk != otherchunk and chunk not in values and embedding is None:
         return 0
     else:
         if restricted:
@@ -522,7 +539,10 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
                 else:
                     slots_j = dm.restricted_number_chunks[(restricted, chunk)]
             else:
-                return 0
+                if embedding is not None:
+                    return strength_of_association
+                else:
+                    return 0
         else:
             slots_j = 1
             if chunk not in dm.unrestricted_number_chunks:
@@ -534,9 +554,13 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
             else:
                 slots_j = dm.unrestricted_number_chunks[chunk]
     slots_ij = list(values).count(chunk)
+    print(f"slots_j ={slots_j}, slots_ij={slots_ij}")
+    print("ln fan=", math.log(slots_j / max(1, slots_ij)))
+
     return strength_of_association - math.log(slots_j/max(1, slots_ij))
 
-def spreading_activation(chunk, buffers, dm, buffer_spreading_activation, strength, restricted=False, only_chunks=True):
+
+def spreading_activation(chunk, buffers, dm, buffer_spreading_activation, strength, restricted=False, only_chunks=True, embedding=None):
     """
     Calculate spreading activation.
 
@@ -552,9 +576,9 @@ def spreading_activation(chunk, buffers, dm, buffer_spreading_activation, streng
         s_ji = 0
         for each in find_chunks(otherchunk, only_chunks).items():
             if restricted:
-                s_ji += calculate_strength_association(each[1], chunk, dm, strength, each[0], only_chunks)
+                s_ji += calculate_strength_association(each[1], chunk, dm, strength, each[0], only_chunks, embedding=embedding)
             else:
-                s_ji += calculate_strength_association(each[1], chunk, dm, strength, only_chunks=only_chunks)
+                s_ji += calculate_strength_association(each[1], chunk, dm, strength, only_chunks=only_chunks, embedding=embedding)
 
         SA += w_kj*s_ji
     return SA

@@ -6,6 +6,9 @@ import pyparsing
 
 from pyactr import chunks, declarative, goals, motor, productions, simulation, utilities, vision
 
+import pickle
+
+
 class ACTRModel:
     """
     ACT-R model, running ACT-R simulations.
@@ -38,7 +41,8 @@ class ACTRModel:
     "emma_noise": True,
     "emma_landing_site_noise": False,
     "eye_mvt_angle_parameter": 1,
-    "eye_mvt_scaling_parameter": 0.01
+    "eye_mvt_scaling_parameter": 0.01,
+    "embeddings": None
     }
 
     environment has to be an instantiation of the class Environment.
@@ -72,6 +76,7 @@ class ACTRModel:
                 "emma_landing_site_noise": False,
                 "eye_mvt_angle_parameter": 1, #in LispACT-R: 1
                 "eye_mvt_scaling_parameter": 0.01, #in LispACT-R: 0.01, but dft rule firing -- 0.01
+                "embeddings": None,
                 }
 
     def __init__(self, environment=None, **model_parameters):
@@ -86,7 +91,17 @@ class ACTRModel:
 
         self.__buffers = {"g": start_goal}
 
-        start_retrieval = declarative.DecMemBuffer()
+        self.model_parameters = self.MODEL_PARAMETERS.copy()
+        try:
+            if not set(model_parameters.keys()).issubset(set(self.MODEL_PARAMETERS.keys())):
+                raise(utilities.ACTRError("Incorrect model parameter(s) %s. The only possible model parameters are: '%s'" % (set(model_parameters.keys()).difference(set(self.MODEL_PARAMETERS.keys())), set(self.MODEL_PARAMETERS.keys()))))
+            self.model_parameters.update(model_parameters)
+        except TypeError:
+            pass
+
+        self.embeddings = self._read_embeddings()
+
+        start_retrieval = declarative.DecMemBuffer(embedding=self.embeddings)
         self.retrievals = {"retrieval": start_retrieval}
         
         self.__buffers["retrieval"] = start_retrieval
@@ -97,14 +112,15 @@ class ACTRModel:
         self.productions = productions.Productions()
         self.__similarities = {}
 
-        self.model_parameters = self.MODEL_PARAMETERS.copy()
+        # self.model_parameters = self.MODEL_PARAMETERS.copy()
 
-        try:
-            if not set(model_parameters.keys()).issubset(set(self.MODEL_PARAMETERS.keys())):
-                raise(utilities.ACTRError("Incorrect model parameter(s) %s. The only possible model parameters are: '%s'" % (set(model_parameters.keys()).difference(set(self.MODEL_PARAMETERS.keys())), set(self.MODEL_PARAMETERS.keys()))))
-            self.model_parameters.update(model_parameters)
-        except TypeError:
-            pass
+
+        # try:
+        #     if not set(model_parameters.keys()).issubset(set(self.MODEL_PARAMETERS.keys())):
+        #         raise(utilities.ACTRError("Incorrect model parameter(s) %s. The only possible model parameters are: '%s'" % (set(model_parameters.keys()).difference(set(self.MODEL_PARAMETERS.keys())), set(self.MODEL_PARAMETERS.keys()))))
+        #     self.model_parameters.update(model_parameters)
+        # except TypeError:
+        #     pass
 
         self.__env = environment
     
@@ -169,7 +185,7 @@ class ACTRModel:
         """
         if not isinstance(name, str):
             raise(ValueError("Retrieval buffer can be only set with a string, the name of the retrieval buffer."))
-        dmb = declarative.DecMemBuffer()
+        dmb = declarative.DecMemBuffer(embedding=self.embeddings)
         self.__buffers[name] = dmb
         self.retrievals[name] = dmb
         return dmb
@@ -218,13 +234,6 @@ class ACTRModel:
         reward: reward of the rule (default: None)
 
         The following example would be a rule that checks the buffer 'g' and if the buffer has value one, it will reset it to two:
-        >>> ACTRModel().productionstring(name='example0', string='=g>\
-                isa example\
-                value one\
-                ==>\
-                =g>\
-                isa example\
-                value two')
         {'=g': example(value= one)}
         ==>
         {'=g': example(value= two)}
@@ -323,3 +332,11 @@ class ACTRModel:
         chunks.Chunk._similarities = self.__similarities
 
         return simulation.Simulation(self.__env, realtime, trace, gui, self.__buffers, used_productions, initial_time, environment_process, **kwargs)
+
+    def _read_embeddings(self):
+        if self.model_parameters["embeddings"] is not None:
+            with open(f'../data/{self.model_parameters["embeddings"]}.pkl', 'rb') as f:
+                emb_dict = pickle.load(f)
+            return emb_dict
+        else:
+            return
