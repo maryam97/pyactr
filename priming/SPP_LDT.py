@@ -1,5 +1,6 @@
 import warnings
-
+import sys
+sys.path.insert(0, "../pyactr")
 import pyactr as actr
 import simpy
 import re

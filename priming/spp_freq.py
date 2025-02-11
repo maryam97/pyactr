@@ -4,9 +4,7 @@ default delay for the imaginal buffer (200 ms)
 """
 
 import warnings
-
 import pandas as pd
-import pyactr as actr
 import numpy as np
 import pymc as pm
 import arviz as az
@@ -15,6 +13,11 @@ import pytensor
 import pytensor.tensor as pt
 from pytensor.compile.ops import as_op
 import argparse
+import sys
+sys.path.insert(0, "../pyactr")
+import pyactr as actr
+print(actr.__file__)
+
 warnings.filterwarnings("ignore")
 warnings.simplefilter("ignore")
 # on average, 15 years of exposure is 112.5 million words
