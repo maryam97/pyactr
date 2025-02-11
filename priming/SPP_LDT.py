@@ -11,9 +11,9 @@ class Model:
     Model for fan experiment. We will abstract away from environment, key presses and visual module (the same is done in the abstract model of Lisp ACT-R).
     """
 
-    def __init__(self, prime, target, **kwargs):
+    def __init__(self, prime, target, data_path, **kwargs):
         env = actr.Environment(focus_position=(0, 0))
-        self.model = actr.ACTRModel(environment=env, **kwargs)
+        self.model = actr.ACTRModel(environment=env, data_path=data_path, **kwargs)
 
         actr.chunktype("meaning", "word")
         actr.chunktype("goal", "state")
@@ -189,13 +189,13 @@ def run_simulation(env, model, target):
     return rt, key
 
 
-def experiments(mas, noise, pairs, embeddings, latency_factor):
+def experiments(mas, noise, pairs, embeddings, latency_factor, data_path):
     # env = actr.Environment(focus_position=(0, 0))
     results_df = pd.DataFrame(columns=['prime', 'target', 'predicted_rt', 'accuracy'])
     accuracy_accum = 0
 
     for prime, target in pairs:
-        model = Model(prime=prime, target=target,
+        model = Model(prime=prime, target=target, data_path=data_path,
                       # environment=env,
                       automatic_visual_search=False,
                       motor_prepared=True,
@@ -207,7 +207,8 @@ def experiments(mas, noise, pairs, embeddings, latency_factor):
                       activation_trace=True, strict_harvesting=False,
                       retrieval_threshold=-2,
                       instantaneous_noise=noise, emma=False,
-                      embeddings=embeddings)
+                      embeddings=embeddings
+                      )
         env = model.env
         rt, response = run_simulation(env=env, model=model, target=target)
         accuracy = response == "J"  # change if we have non-word targets
@@ -239,9 +240,10 @@ if __name__ == "__main__":
     dataset_name = "spp_short_rem"  # spp_short_rem for w2v
     embeddings = 'spp_w2v'  # 'spp_bert_L0'
     latency_factor = 0.7  #0.1  # default, 0.63
+    data_path = "../data"
     pairs = read_data(dataset_name=dataset_name)
-    results = experiments(mas=mas, noise=noise, pairs=pairs, embeddings=embeddings, latency_factor=latency_factor)
-    results.to_csv(f'../data/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}.csv')
+    results = experiments(mas=mas, noise=noise, pairs=pairs, embeddings=embeddings, latency_factor=latency_factor, data_path=data_path)
+    results.to_csv(f'{data_path}/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}.csv')
 
 
 

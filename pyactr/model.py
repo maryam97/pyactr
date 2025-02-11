@@ -42,7 +42,7 @@ class ACTRModel:
     "emma_landing_site_noise": False,
     "eye_mvt_angle_parameter": 1,
     "eye_mvt_scaling_parameter": 0.01,
-    "embeddings": None
+    "embeddings": None,
     }
 
     environment has to be an instantiation of the class Environment.
@@ -79,8 +79,9 @@ class ACTRModel:
                 "embeddings": None,
                 }
 
-    def __init__(self, environment=None, **model_parameters):
+    def __init__(self, environment=None, data_path="../data", **model_parameters):
 
+        self.data_path = data_path
         self.chunktype = chunks.chunktype
         self.chunkstring = chunks.chunkstring
 
@@ -111,6 +112,7 @@ class ACTRModel:
 
         self.productions = productions.Productions()
         self.__similarities = {}
+
 
         # self.model_parameters = self.MODEL_PARAMETERS.copy()
 
@@ -335,7 +337,7 @@ class ACTRModel:
 
     def _read_embeddings(self):
         if self.model_parameters["embeddings"] is not None:
-            with open(f'../data/{self.model_parameters["embeddings"]}.pkl', 'rb') as f:
+            with open(f'{self.data_path}/{self.model_parameters["embeddings"]}.pkl', 'rb') as f:
                 emb_dict = pickle.load(f)
             return emb_dict
         else:

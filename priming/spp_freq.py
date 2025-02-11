@@ -292,6 +292,9 @@ def args_parser():
     parser.add_argument('--root',
                         type=str,
                         default='.')
+    parser.add_argument('--data_path',
+                        type=str,
+                        default='./data')
     parser.add_argument('--chains',
                         type=int,
                         default=1)
@@ -315,8 +318,9 @@ if __name__ == "__main__":
     embeddings = 'spp_w2v'  # 'spp_bert_L0'
     # latency_factor = 0.7  #0.1  # default, 0.63
     # pairs = read_data(dataset_name=dataset_name)
+    data_path = args.data_path
     # Freq input
-    spp_freq = pd.read_csv('./data/spp_freq.csv')
+    spp_freq = pd.read_csv(f'{data_path}/spp_freq.csv')
     FREQ = np.array(spp_freq['mean_freq'])
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
@@ -341,7 +345,9 @@ if __name__ == "__main__":
     # results = experiments(mas=mas, noise=noise, pairs=pairs, embeddings=embeddings, latency_factor=latency_factor)
     # results.to_csv(f'../data/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}.csv')
     actr_env = actr.Environment(focus_position=(320, 180))
-    actr_model = actr.ACTRModel(environment=actr_env, automatic_visual_search=False,
+    actr_model = actr.ACTRModel(environment=actr_env,
+                                data_path=data_path,
+                                automatic_visual_search=False,
                                 motor_prepared=True,
                                 subsymbolic=True,
                                 # latency_factor=latency_factor,
@@ -404,5 +410,5 @@ if __name__ == "__main__":
 
         print('trace=', trace)
         print('saving trace...')
-        trace.to_netcdf(f'{args.root}/trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
+        trace.to_netcdf(f'{args.data_path}/param_fit/trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
 
