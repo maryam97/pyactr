@@ -519,10 +519,10 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
         if chunk_str in embedding.keys() and pair_str in embedding.keys():
             cosine_sim += max(0.0, 1 - spatial.distance.cosine(embedding[chunk_str], embedding[pair_str]))
             print(f"cosine_sim of {chunk_str} and {pair_str}=", cosine_sim)
-
-        if cosine_sim > 0.0:
-            print("cosine_sim=", cosine_sim)
-            strength_of_association *= cosine_sim
+        #
+        # if cosine_sim >= 0.0:
+        #     print("cosine_sim=", cosine_sim)
+        strength_of_association *= cosine_sim
 
     if chunk != otherchunk and chunk not in values and embedding is None:
         return 0
