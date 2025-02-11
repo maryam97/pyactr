@@ -313,7 +313,7 @@ if __name__ == "__main__":
     # latency_factor = 0.7  #0.1  # default, 0.63
     # pairs = read_data(dataset_name=dataset_name)
     # Freq input
-    spp_freq = pd.read_csv('../data/spp_freq.csv')
+    spp_freq = pd.read_csv('./data/spp_freq.csv')
     FREQ = np.array(spp_freq['mean_freq'])
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
