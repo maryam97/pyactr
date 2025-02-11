@@ -3,6 +3,7 @@ import warnings
 import pyactr as actr
 import simpy
 import re
+import pandas as pd
 
 class Model:
     """
@@ -27,7 +28,7 @@ class Model:
         #     w_chunk = actr.makechunk(nameofchunk=word, typename="meaning", word=word)
         #     self.dm.add(w_chunk)
         # self.model.set_decmem(set(dict_dm.values()))
-        self.dm = self.model.decmem
+        self.dm = self.model.decmem  ###  WHY twice??
 
         g = self.model.goal
         g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
@@ -187,8 +188,9 @@ def run_simulation(env, model, target):
     return rt, key
 
 
-def experiments(mas, noise, pairs):
+def experiments(mas, noise, pairs, embeddings, latency_factor):
     # env = actr.Environment(focus_position=(0, 0))
+    results_df = pd.DataFrame(columns=['prime', 'target', 'predicted_rt', 'accuracy'])
     accuracy_accum = 0
 
     for prime, target in pairs:
@@ -197,28 +199,48 @@ def experiments(mas, noise, pairs):
                       automatic_visual_search=False,
                       motor_prepared=True,
                       subsymbolic=True,
-                      latency_factor=0.63, strength_of_association=mas,
+                      latency_factor=latency_factor, strength_of_association=mas,
                       buffer_spreading_activation={"imaginal": 1},
                       spreading_activation_restricted=True,
                       association_only_from_chunks=False,
                       activation_trace=True, strict_harvesting=False,
                       retrieval_threshold=-2,
                       instantaneous_noise=noise, emma=False,
-                      embeddings='spp_w2v')
+                      embeddings=embeddings)
         env = model.env
         rt, response = run_simulation(env=env, model=model, target=target)
         accuracy = response == "J"  # change if we have non-word targets
         accuracy_accum += accuracy
         print(f"Accuracy for ({prime},{target}) = {float(accuracy)}")
         print(f"Reading time for the target `{target}` is {rt * 1000} (ms)")
+        # add results to df
+        data = [{'prime': prime, 'target': target, 'predicted_rt': rt, 'accuracy': accuracy}]
+        results_df = pd.concat([results_df, pd.DataFrame(data)], ignore_index=True)
+
+    return results_df
+
+def read_data(dataset_name):
+
+    data = pd.read_csv(f'../data/{dataset_name}.csv', index_col=0)
+    if 'prime' not in list(data.columns) or 'target' not in list(data.columns):
+        assert NotImplementedError
+    unique_prime_target_tuples = data[['prime', 'target']].drop_duplicates()
+    pairs_list = list(unique_prime_target_tuples.itertuples(index=False, name=None))
+
+    return pairs_list
 
 
 if __name__ == "__main__":
     warnings.simplefilter("ignore")
-    mas = 1.6  # maximum association strength
+    mas = 1.0  # maximum association strength
     noise = 0.0
-    pairs = [('body', 'abdomen'), ('ability', 'capability')]
-    experiments(mas=mas, noise=noise, pairs=pairs)
+    # pairs = [('body', 'abdomen'), ('ability', 'capability')]
+    dataset_name = "spp_short_rem"  # spp_short_rem for w2v
+    embeddings = 'spp_w2v'  # 'spp_bert_L0'
+    latency_factor = 0.7  #0.1  # default, 0.63
+    pairs = read_data(dataset_name=dataset_name)
+    results = experiments(mas=mas, noise=noise, pairs=pairs, embeddings=embeddings, latency_factor=latency_factor)
+    results.to_csv(f'../data/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}.csv')
 
 
 
