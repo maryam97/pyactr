@@ -188,7 +188,7 @@ def run_stimulus(target, prime):
     prime_model.model.model_parameters['motor_prepared'] = True
 
     # run new simulation; switch to gui=True to suppress pyactr output when estimating Bayesian model
-    lex_dec_sim = prime_model.simulation(realtime=False, gui=False, trace=False,
+    lex_dec_sim = prime_model.model.simulation(realtime=False, gui=False, trace=False,
               environment_process=actr_env.environment_process,
               stimuli=stim, triggers='', times=10)
     while True:
@@ -231,7 +231,7 @@ def actrmodel_latency(lf, le, decay, activation_from_time):
     prime_model.model.model_parameters["latency_exponent"] = np.array(le).astype("float32").item()
     prime_model.model.model_parameters["decay"] = np.array(decay).astype("float32").item()
     activation_dict = {x[0]: np.array(x[1]).astype("float32").item()
-                       for x in zip(target_chunks.values().tolist(), activation_from_time)}
+                       for x in zip(list(target_chunks.values()), activation_from_time)}
     prime_model.dm.activations.update(activation_dict)
     sample = run_lex_decision_task()
     return np.array(sample)
