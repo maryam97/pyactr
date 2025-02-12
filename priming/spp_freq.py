@@ -230,7 +230,7 @@ def run_lex_decision_task(prime_model, env, pairs, prime_chunks, target_chunks):
     return sample
 
 
-@as_op(itypes=[pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
+@as_op(itypes=[pt.pyobject, pt.pyobject, pt.pyobject, pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
        otypes=[pt.dvector])
 def actrmodel_latency(prime_model, env, pairs, prime_chunks, target_chunks, lf, le, decay, activation_from_time):
     """
@@ -412,7 +412,7 @@ if __name__ == "__main__":
     with lex_decision_with_bayes:
         num_draws = args.draws
         num_chains = args.chains
-        num_tunes = args.tunes  
+        num_tunes = args.tunes
 
         step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
         trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step)
