@@ -281,7 +281,7 @@ if __name__ == "__main__":
     data_path = args.data_path
     # Freq input
     spp_freq = pd.read_csv(f'{data_path}/spp_freq.csv')
-    FREQ = np.array(spp_freq['mean_freq'])
+    FREQ = np.array(spp_freq['target_freq'])
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
 
@@ -291,7 +291,7 @@ if __name__ == "__main__":
     FREQ_DICT = {}
     for i in range(spp_freq.shape[0]):
         row = spp_freq.iloc[i]
-        FREQ_DICT[spp_freq.iloc[i].target] = spp_freq.iloc[i].mean_freq * 112.5
+        FREQ_DICT[spp_freq.iloc[i].target] = spp_freq.iloc[i].target_freq * 112.5
 
     # ORDERED_FREQ = sorted(list(FREQ_DICT), key=lambda x: FREQ_DICT[x], reverse=True)
 
