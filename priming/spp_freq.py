@@ -159,7 +159,7 @@ class Model:
         """)
 
 
-def run_stimulus(prime_model, env, target, prime):
+def run_stimulus(prime_model, env, target, prime, prime_chunks, target_chunks):
     """
     Function running one instance of lexical decision for a word.
     """
@@ -170,13 +170,11 @@ def run_stimulus(prime_model, env, target, prime):
     except KeyError:
         pass
     try:
-        prime_model.model.g.pop()
-        # model.goals["g"].pop()
+        prime_model.g.pop()
     except KeyError:
         pass
     try:
-        prime_model.model.imaginal.pop()
-        # model.goals["imaginal"].pop()
+        prime_model.imaginal.pop()
     except KeyError:
         pass
 
@@ -189,17 +187,17 @@ def run_stimulus(prime_model, env, target, prime):
     #                                                   typename="word"))
     # model.goals["imaginal"].delay = 0.2
 
-    prime_chunk = actr.makechunk(typename="meaning", word=prime)
-    prime_model.model.dm.add(prime_chunk)
-    target_chunk = actr.makechunk(typename="meaning", word=target)
-    prime_model.model.dm.add(target_chunk)
+    # prime_chunk = actr.makechunk(typename="meaning", word=prime)
+    prime_model.dm.add(prime_chunks[prime])
+    # target_chunk = actr.makechunk(typename="meaning", word=target)
+    prime_model.dm.add(target_chunks[target])
 
     # self.g = self.model.goal
-    prime_model.model.g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
+    prime_model.g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
 
     # self.imaginal = self.model.set_goal(name="imaginal", delay=0.2)
-    prime_model.model.imaginal.delay = 0.2
-    prime_model.model.imaginal.add(prime_chunk)
+    prime_model.imaginal.delay = 0.2
+    prime_model.imaginal.add(prime_chunk)
 
     env.current_focus = [320, 180]
     prime_model.model.model_parameters['motor_prepared'] = True
@@ -219,7 +217,7 @@ def run_stimulus(prime_model, env, target, prime):
     return estimated_time
 
 
-def run_lex_decision_task(prime_model, env, pairs):
+def run_lex_decision_task(prime_model, env, pairs, prime_chunks, target_chunks):
     """
     Function running a full lexical decision task:
     it calls run_stimulus(word) for words from all 16 freq bands.
@@ -227,13 +225,14 @@ def run_lex_decision_task(prime_model, env, pairs):
     sample = []
     # for word in ORDERED_FREQ:
     for target, prime in pairs:
-        sample.append(run_stimulus(prime_model=prime_model, env=env, target=target, prime=prime))
+        sample.append(run_stimulus(prime_model=prime_model, env=env, target=target, prime=prime,
+                                   prime_chunks=prime_chunks, target_chunks=target_chunks))
     return sample
 
 
 @as_op(itypes=[pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
        otypes=[pt.dvector])
-def actrmodel_latency(prime_model, env, pairs, lf, le, decay, activation_from_time):
+def actrmodel_latency(prime_model, env, pairs, prime_chunks, target_chunks, lf, le, decay, activation_from_time):
     """
     Function running the entire lexical decision task for specific
     values of the latency factor, latency exponent and decay parameters.
@@ -248,9 +247,10 @@ def actrmodel_latency(prime_model, env, pairs, lf, le, decay, activation_from_ti
     prime_model.model.model_parameters["latency_exponent"] = np.array(le).astype("float32").item()
     prime_model.model.model_parameters["decay"] = np.array(decay).astype("float32").item()
     activation_dict = {x[0]: np.array(x[1]).astype("float32").item()
-                       for x in zip(LEMMA_CHUNKS, activation_from_time)}
-    prime_model.decmem.activations.update(activation_dict)
-    sample = run_lex_decision_task(prime_model=prime_model, env=env, pairs=pairs)
+                       for x in zip(target_chunks.values().tolist(), activation_from_time)}
+    prime_model.dm.activations.update(activation_dict)
+    sample = run_lex_decision_task(prime_model=prime_model, env=env, pairs=pairs,
+                                   prime_chunks=prime_chunks, target_chunks=target_chunks)
     return np.array(sample)
 
 
@@ -356,18 +356,25 @@ if __name__ == "__main__":
                                 spreading_activation_restricted=True,
                                 association_only_from_chunks=False,
                                 activation_trace=True, strict_harvesting=False,
-                                retrieval_threshold=-2,
+                                retrieval_threshold=-80,
                                 instantaneous_noise=noise, emma=False,
                                 embeddings=embeddings)
 
     # for prime, target in pairs:
     prime_model = Model(model=actr_model)
-    LEMMA_CHUNKS = [(actr.makechunk("", typename="word", form=word)) ###???
-                    for word in spp_freq.target] #ORDERED_FREQ, already sorted
-    prime_model.model.set_decmem({x: np.array([]) for x in LEMMA_CHUNKS}) ###?
+    # LEMMA_CHUNKS = [(actr.makechunk("", typename="word", form=word)) ###???
+    #                 for word in spp_freq.target] #ORDERED_FREQ, already sorted
+    # prime_model.model.set_decmem({x: np.array([]) for x in LEMMA_CHUNKS}) ###?
     pairs = []
+    prime_chunks, target_chunks = {}, {}
     for i in range(spp_freq.shape[0]):  # add in order of frequencies
-        pairs.append((spp_freq.iloc[i].target, spp_freq.iloc[i].prime))
+        target = spp_freq.iloc[i].target
+        prime = spp_freq.iloc[i].prime
+        pairs.append((target, prime))
+        prime_chunk = actr.makechunk(typename="meaning", word=prime)
+        prime_chunks[prime] = prime_chunk
+        target_chunk = actr.makechunk(typename="meaning", word=target)
+        target_chunks[target] = target_chunk
 
     # Bayesian Model
     lex_decision_with_bayes = pm.Model()
@@ -391,7 +398,9 @@ if __name__ == "__main__":
 
         activation_from_time, _ = pytensor.scan(fn=compute_activation, sequences=scaled_time)
         # latency likelihood -- this is where pyactr is used
-        pyactr_rt = actrmodel_latency(prime_model=prime_model, env=actr_env, pairs=pairs, lf=lf, le=le, decay=decay,
+        pyactr_rt = actrmodel_latency(prime_model=prime_model, env=actr_env, pairs=pairs,
+                                      prime_chunks=prime_chunks, target_chunks=target_chunks,
+                                      lf=lf, le=le, decay=decay,
                                       activation_from_time=activation_from_time)
         mu_rt = Deterministic('mu_rt', pyactr_rt)
         rt_observed = Normal('rt_observed', mu=mu_rt, sigma=0.01, observed=RT)
@@ -401,9 +410,9 @@ if __name__ == "__main__":
         prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
 
     with lex_decision_with_bayes:
-        num_draws = args.draws  # 1000
-        num_chains = args.chains  # 4
-        num_tunes = args.tunes  # 10000
+        num_draws = args.draws
+        num_chains = args.chains
+        num_tunes = args.tunes  
 
         step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
         trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step)
