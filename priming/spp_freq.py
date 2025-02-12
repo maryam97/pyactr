@@ -229,9 +229,8 @@ def run_lex_decision_task(prime_model, env, pairs, prime_chunks, target_chunks):
                                    prime_chunks=prime_chunks, target_chunks=target_chunks))
     return sample
 
-
-@as_op(itypes=[pt.pyobject, pt.pyobject, pt.pyobject, pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
-       otypes=[pt.dvector])
+# itypes=[pt.pyobject, pt.pyobject, pt.pyobject, pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
+@as_op(otypes=[pt.dvector])
 def actrmodel_latency(prime_model, env, pairs, prime_chunks, target_chunks, lf, le, decay, activation_from_time):
     """
     Function running the entire lexical decision task for specific
