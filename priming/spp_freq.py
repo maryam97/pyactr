@@ -352,8 +352,7 @@ if __name__ == "__main__":
 
         activation_from_time, _ = pytensor.scan(fn=compute_activation, sequences=scaled_time)
         # latency likelihood -- this is where pyactr is used
-        pyactr_rt = actrmodel_latency(lf=lf, le=le, decay=decay,
-                                      activation_from_time=activation_from_time)
+        pyactr_rt = actrmodel_latency(lf, le, decay, activation_from_time)
         mu_rt = Deterministic('mu_rt', pyactr_rt)
         rt_observed = Normal('rt_observed', mu=mu_rt, sigma=0.01, observed=RT)
         # accuracy likelihood
