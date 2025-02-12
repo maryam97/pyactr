@@ -188,9 +188,13 @@ def run_stimulus(target, prime):
     prime_model.model.model_parameters['motor_prepared'] = True
 
     # run new simulation; switch to gui=True to suppress pyactr output when estimating Bayesian model
-    lex_dec_sim = prime_model.model.simulation(realtime=False, gui=False, trace=False,
-              environment_process=actr_env.environment_process,
-              stimuli=stim, triggers='', times=10)
+    lex_dec_sim = prime_model.model.simulation(realtime=False, gui=False,
+                           environment_process=actr_env.environment_process,
+                           stimuli=stim, triggers=[['J', 'F']], times=30, trace=True
+                           )
+        # model.simulation(realtime=False, gui=False, trace=False,
+        #       environment_process=actr_env.environment_process,
+        #       stimuli=stim, triggers='', times=10)
     while True:
         lex_dec_sim.step()
         if lex_dec_sim.current_event.action == "KEY PRESSED: J":
