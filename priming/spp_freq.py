@@ -182,10 +182,17 @@ def run_stimulus(target, prime):
 
     # self.imaginal = self.model.set_goal(name="imaginal", delay=0.2)
     prime_model.imaginal.delay = 0.2
-    prime_model.imaginal.add(prime_chunk)
+    prime_model.imaginal.add(prime_chunks[prime])
 
     actr_env.current_focus = [320, 180]
     prime_model.model.model_parameters['motor_prepared'] = True
+    prime_model.model.model_parameters['strength_of_association'] = mas
+    prime_model.model.model_parameters['buffer_spreading_activation'] = {"imaginal": 1}
+    prime_model.model.model_parameters['spreading_activation_restricted'] = True
+    prime_model.model.model_parameters['association_only_from_chunks'] = False
+    prime_model.model.model_parameters['activation_trace'] = True
+
+
 
     # run new simulation; switch to gui=True to suppress pyactr output when estimating Bayesian model
     lex_dec_sim = prime_model.model.simulation(realtime=False, gui=False,
@@ -266,8 +273,6 @@ def args_parser():
 
 if __name__ == "__main__":
     args = args_parser()
-    mas = 1.0  # maximum association strength
-    noise = 0.0
 
     dataset_name = "spp_short_rem"  # spp_short_rem for w2v
     embeddings = 'spp_w2v'  # 'spp_bert_L0'
@@ -280,8 +285,9 @@ if __name__ == "__main__":
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
 
-    global prime_model, pairs, prime_chunks, target_chunks, actr_env
-
+    global prime_model, pairs, prime_chunks, target_chunks, actr_env, mas, noise
+    mas = 1.0  # maximum association strength
+    noise = 0.0
     FREQ_DICT = {}
     for i in range(spp_freq.shape[0]):
         row = spp_freq.iloc[i]
