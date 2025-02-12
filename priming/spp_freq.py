@@ -31,28 +31,13 @@ class Model:
     """
 
     def __init__(self, model):
-        # env = actr.Environment(focus_position=(0, 0))
-        # self.model = actr.ACTRModel(environment=env, **kwargs)
         self.model = model
 
         actr.chunktype("meaning", "word")
         actr.chunktype("goal", "state")
-
-        # dict_dm = {}
-        # words = f"{prime} {target}".split()
         self.dm = self.model.decmem
-        # prime_chunk = actr.makechunk(typename="meaning", word=prime)
-        # self.dm.add(prime_chunk)
-        # target_chunk = actr.makechunk(typename="meaning", word=target)
-        # self.dm.add(target_chunk)
-
         self.g = self.model.goal
-        # self.g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
-
         self.imaginal = self.model.set_goal(name="imaginal", delay=0.2)
-        # self.imaginal.add(prime_chunk)
-
-        # self.env = env
 
         visual, visual_location = self.model.visualBuffer("visual", "visual_location",
                                                      default_harvest=self.dm, finst=1)
@@ -159,7 +144,7 @@ class Model:
         """)
 
 
-def run_stimulus(prime_model, env, target, prime, prime_chunks, target_chunks):
+def run_stimulus(target, prime):
     """
     Function running one instance of lexical decision for a word.
     """
@@ -199,12 +184,12 @@ def run_stimulus(prime_model, env, target, prime, prime_chunks, target_chunks):
     prime_model.imaginal.delay = 0.2
     prime_model.imaginal.add(prime_chunk)
 
-    env.current_focus = [320, 180]
+    actr_env.current_focus = [320, 180]
     prime_model.model.model_parameters['motor_prepared'] = True
 
     # run new simulation; switch to gui=True to suppress pyactr output when estimating Bayesian model
     lex_dec_sim = prime_model.simulation(realtime=False, gui=False, trace=False,
-              environment_process=env.environment_process,
+              environment_process=actr_env.environment_process,
               stimuli=stim, triggers='', times=10)
     while True:
         lex_dec_sim.step()
@@ -217,7 +202,7 @@ def run_stimulus(prime_model, env, target, prime, prime_chunks, target_chunks):
     return estimated_time
 
 
-def run_lex_decision_task(prime_model, env, pairs, prime_chunks, target_chunks):
+def run_lex_decision_task():
     """
     Function running a full lexical decision task:
     it calls run_stimulus(word) for words from all 16 freq bands.
@@ -225,13 +210,13 @@ def run_lex_decision_task(prime_model, env, pairs, prime_chunks, target_chunks):
     sample = []
     # for word in ORDERED_FREQ:
     for target, prime in pairs:
-        sample.append(run_stimulus(prime_model=prime_model, env=env, target=target, prime=prime,
-                                   prime_chunks=prime_chunks, target_chunks=target_chunks))
+        sample.append(run_stimulus(target=target, prime=prime))
     return sample
 
-# itypes=[pt.pyobject, pt.pyobject, pt.pyobject, pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
-@as_op(otypes=[pt.dvector])
-def actrmodel_latency(prime_model, env, pairs, prime_chunks, target_chunks, lf, le, decay, activation_from_time):
+
+@as_op(itypes=[pt.dscalar, pt.dscalar, pt.dscalar, pt.dvector],
+       otypes=[pt.dvector])
+def actrmodel_latency(lf, le, decay, activation_from_time):
     """
     Function running the entire lexical decision task for specific
     values of the latency factor, latency exponent and decay parameters.
@@ -248,42 +233,9 @@ def actrmodel_latency(prime_model, env, pairs, prime_chunks, target_chunks, lf, 
     activation_dict = {x[0]: np.array(x[1]).astype("float32").item()
                        for x in zip(target_chunks.values().tolist(), activation_from_time)}
     prime_model.dm.activations.update(activation_dict)
-    sample = run_lex_decision_task(prime_model=prime_model, env=env, pairs=pairs,
-                                   prime_chunks=prime_chunks, target_chunks=target_chunks)
+    sample = run_lex_decision_task()
     return np.array(sample)
 
-
-# def experiments(mas, noise, pairs, embeddings, latency_factor):
-#     # env = actr.Environment(focus_position=(0, 0))
-#     # results_df = pd.DataFrame(columns=['prime', 'target', 'predicted_rt', 'accuracy'])
-#     accuracy_accum = 0
-#     actr_env = actr.Environment(focus_position=(320, 180))
-#     actr_model = actr.ACTRModel(environment=actr_env, automatic_visual_search=False,
-#                           motor_prepared=True,
-#                           subsymbolic=True,
-#                           latency_factor=latency_factor,
-#                           strength_of_association=mas,
-#                           buffer_spreading_activation={"imaginal": 1},
-#                           spreading_activation_restricted=True,
-#                           association_only_from_chunks=False,
-#                           activation_trace=True, strict_harvesting=False,
-#                           retrieval_threshold=-2,
-#                           instantaneous_noise=noise, emma=False,
-#                           embeddings=embeddings)
-#
-#     # for prime, target in pairs:
-#     model = Model(model=actr_model)
-#         # env = model.env
-#         # rt, response = run_simulation(env=env, model=model, target=target)
-#         # accuracy = response == "J"  # change if we have non-word targets
-#         # accuracy_accum += accuracy
-#         # print(f"Accuracy for ({prime},{target}) = {float(accuracy)}")
-#         # print(f"Reading time for the target `{target}` is {rt * 1000} (ms)")
-#         # # add results to df
-#         # data = [{'prime': prime, 'target': target, 'predicted_rt': rt, 'accuracy': accuracy}]
-#         # results_df = pd.concat([results_df, pd.DataFrame(data)], ignore_index=True)
-#
-#     return #model #results_df
 
 def args_parser():
 
@@ -324,6 +276,8 @@ if __name__ == "__main__":
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
 
+    global prime_model, pairs, prime_chunks, target_chunks, actr_env
+
     FREQ_DICT = {}
     for i in range(spp_freq.shape[0]):
         row = spp_freq.iloc[i]
@@ -360,6 +314,7 @@ if __name__ == "__main__":
                                 embeddings=embeddings)
 
     # for prime, target in pairs:
+
     prime_model = Model(model=actr_model)
     # LEMMA_CHUNKS = [(actr.makechunk("", typename="word", form=word)) ###???
     #                 for word in spp_freq.target] #ORDERED_FREQ, already sorted
@@ -397,9 +352,7 @@ if __name__ == "__main__":
 
         activation_from_time, _ = pytensor.scan(fn=compute_activation, sequences=scaled_time)
         # latency likelihood -- this is where pyactr is used
-        pyactr_rt = actrmodel_latency(prime_model=prime_model, env=actr_env, pairs=pairs,
-                                      prime_chunks=prime_chunks, target_chunks=target_chunks,
-                                      lf=lf, le=le, decay=decay,
+        pyactr_rt = actrmodel_latency(lf=lf, le=le, decay=decay,
                                       activation_from_time=activation_from_time)
         mu_rt = Deterministic('mu_rt', pyactr_rt)
         rt_observed = Normal('rt_observed', mu=mu_rt, sigma=0.01, observed=RT)
