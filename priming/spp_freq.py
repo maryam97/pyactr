@@ -271,10 +271,9 @@ def args_parser():
     return args
 
 
-if __name__ == "__main__":
-    args = args_parser()
+def create_model(args):
 
-    dataset_name = "spp_short_rem"  # spp_short_rem for w2v
+    # dataset_name = "spp_short_rem"  # spp_short_rem for w2v
     embeddings = 'spp_w2v'  # 'spp_bert_L0'
     # latency_factor = 0.7  #0.1  # default, 0.63
     # pairs = read_data(dataset_name=dataset_name)
@@ -305,8 +304,6 @@ if __name__ == "__main__":
 
     time = time_freq(FREQ)
 
-    # results = experiments(mas=mas, noise=noise, pairs=pairs, embeddings=embeddings, latency_factor=latency_factor)
-    # results.to_csv(f'../data/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}.csv')
     actr_env = actr.Environment(focus_position=(320, 180))
     actr_model = actr.ACTRModel(environment=actr_env,
                                 data_path=data_path,
@@ -382,3 +379,8 @@ if __name__ == "__main__":
         print('saving trace...')
         trace.to_netcdf(f'{args.data_path}/param_fit/trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
 
+
+if __name__ == "__main__":
+    args = args_parser()
+
+    create_model(args)
