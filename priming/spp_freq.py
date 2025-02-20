@@ -368,6 +368,14 @@ def create_model(args):
         mu_prob = Deterministic('mu_prob', 1 / (1 + odds_reciprocal))
         prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
 
+    return lex_decision_with_bayes
+
+
+if __name__ == "__main__":
+    args = args_parser()
+    lex_decision_with_bayes = create_model(args)
+
+    # run sampling with the pm model
     with lex_decision_with_bayes:
         num_draws = args.draws
         num_chains = args.chains
@@ -380,8 +388,3 @@ def create_model(args):
         print('saving trace...')
         trace.to_netcdf(f'{args.data_path}/param_fit/trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
 
-
-if __name__ == "__main__":
-    args = args_parser()
-
-    create_model(args)
