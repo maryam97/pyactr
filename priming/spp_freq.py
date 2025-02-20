@@ -190,7 +190,7 @@ def run_stimulus(target, prime):
     prime_model.model.model_parameters['buffer_spreading_activation'] = {"imaginal": 1}
     prime_model.model.model_parameters['spreading_activation_restricted'] = True
     prime_model.model.model_parameters['association_only_from_chunks'] = False
-    # prime_model.model.model_parameters['activation_trace'] = True
+    prime_model.model.model_parameters['activation_trace'] = False
 
 
 
@@ -315,7 +315,7 @@ def create_model(args):
                                 buffer_spreading_activation={"imaginal": 1},
                                 spreading_activation_restricted=True,
                                 association_only_from_chunks=False,
-                                # activation_trace=True,
+                                activation_trace=False,
                                 strict_harvesting=False,
                                 retrieval_threshold=-80,
                                 instantaneous_noise=noise, emma=False,
