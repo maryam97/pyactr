@@ -197,7 +197,7 @@ def run_stimulus(target, prime):
     # run new simulation; switch to gui=True to suppress pyactr output when estimating Bayesian model
     lex_dec_sim = prime_model.model.simulation(realtime=False, gui=False,
                            environment_process=actr_env.environment_process,
-                           stimuli=stim, triggers=[['J', 'F']], times=30, trace=True
+                           stimuli=stim, triggers=[['J', 'F']], times=30, trace=False
                            )
         # model.simulation(realtime=False, gui=False, trace=False,
         #       environment_process=actr_env.environment_process,
@@ -315,7 +315,8 @@ def create_model(args):
                                 buffer_spreading_activation={"imaginal": 1},
                                 spreading_activation_restricted=True,
                                 association_only_from_chunks=False,
-                                activation_trace=True, strict_harvesting=False,
+                                # activation_trace=True,
+                                strict_harvesting=False,
                                 retrieval_threshold=-80,
                                 instantaneous_noise=noise, emma=False,
                                 embeddings=embeddings)
