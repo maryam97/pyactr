@@ -364,9 +364,9 @@ def create_model(args):
         mu_rt = Deterministic('mu_rt', pyactr_rt)
         rt_observed = Normal('rt_observed', mu=mu_rt, sigma=0.01, observed=RT)
         # accuracy likelihood
-        odds_reciprocal = pt.exp(-(activation_from_time - threshold) / noise)
-        mu_prob = Deterministic('mu_prob', 1 / (1 + odds_reciprocal))
-        prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
+        # odds_reciprocal = pt.exp(-(activation_from_time - threshold) / noise)
+        # mu_prob = Deterministic('mu_prob', 1 / (1 + odds_reciprocal))
+        # prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
 
     return lex_decision_with_bayes
 
@@ -382,7 +382,7 @@ if __name__ == "__main__":
         num_tunes = args.tunes
 
         step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
-        trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step)
+        trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step, cores=args.chains)
 
         print('trace=', trace)
         print('saving trace...')
