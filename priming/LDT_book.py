@@ -293,10 +293,10 @@ def actrmodel_latency(lf, le, decay, activation_from_time):
     pymc3 / theano can use it as part of the RT likelihood function in the
     Bayesian model below.
     """
-    lex_decision.model_parameters["latency_factor"] = np.array(lf).astype("float32").item()
-    lex_decision.model_parameters["latency_exponent"] = np.array(le).astype("float32").item()
-    lex_decision.model_parameters["decay"] = np.array(decay).astype("float32").item()
-    activation_dict = {x[0]: np.array(x[1]).astype("float32").item()
+    lex_decision.model_parameters["latency_factor"] = lf #np.array(lf).astype("float32").item()
+    lex_decision.model_parameters["latency_exponent"] = le #np.array(le).astype("float32").item()
+    lex_decision.model_parameters["decay"] = decay #np.array(decay).astype("float32").item()
+    activation_dict = {x[0]: x[1] #np.array(x[1]).astype("float32").item()
                        for x in zip(LEMMA_CHUNKS, activation_from_time)}
     lex_decision.decmem.activations.update(activation_dict)
     sample = run_lex_decision_task()
