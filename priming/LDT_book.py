@@ -267,7 +267,7 @@ def run_stimulus(word):
         if lex_dec_sim.current_event.action == "KEY PRESSED: F":
             estimated_time = -1
             break
-    print(f'Estimated RT= {estimated_time * 1000} ms')
+    print(f'Estimated RT for word= {word} is {estimated_time * 1000} ms')
     return estimated_time
 
 def run_lex_decision_task():
