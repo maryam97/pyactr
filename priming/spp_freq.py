@@ -190,7 +190,7 @@ def run_stimulus(target, prime):
     prime_model.model.model_parameters['buffer_spreading_activation'] = {"imaginal": 1}
     prime_model.model.model_parameters['spreading_activation_restricted'] = True
     prime_model.model.model_parameters['association_only_from_chunks'] = False
-    prime_model.model.model_parameters['activation_trace'] = False
+    prime_model.model.model_parameters['activation_trace'] = trace_log #False
 
 
 
@@ -210,6 +210,8 @@ def run_stimulus(target, prime):
         if lex_dec_sim.current_event.action == "KEY PRESSED: F":
             estimated_time = -1
             break
+    if trace_log:
+        print(f'Estimated RT= {estimated_time*1000} ms')
     return estimated_time
 
 
@@ -266,7 +268,9 @@ def args_parser():
     parser.add_argument('--tunes',
                         type=int,
                         default=1)
-
+    parser.add_argument('--trace',
+                        type=bool,
+                        default=False)
     args = parser.parse_args()
     return args
 
@@ -284,7 +288,8 @@ def create_model(args):
     RT = np.array(spp_freq['target_rt']) / 1000
     ACCURACY = np.ones(spp_freq.shape[0])
 
-    global prime_model, pairs, prime_chunks, target_chunks, actr_env, mas, noise
+    global prime_model, pairs, prime_chunks, target_chunks, actr_env, mas, noise, trace_log
+    trace_log = args.trace
     mas = 1.0  # maximum association strength
     noise = 0.0
     FREQ_DICT = {}
@@ -315,7 +320,7 @@ def create_model(args):
                                 buffer_spreading_activation={"imaginal": 1},
                                 spreading_activation_restricted=True,
                                 association_only_from_chunks=False,
-                                activation_trace=False,
+                                activation_trace=trace_log,
                                 strict_harvesting=False,
                                 retrieval_threshold=-80,
                                 instantaneous_noise=noise, emma=False,
