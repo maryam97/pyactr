@@ -337,7 +337,8 @@ with lex_decision_with_bayes:
     num_tunes = args.tunes #10000
 
     step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
-    trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step)
+    trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step,
+                      cores=args.chains)
 
     print('trace=', trace)
     print('saving trace...')
