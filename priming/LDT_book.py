@@ -4,29 +4,6 @@ default delay for the imaginal buffer (200 ms)
 """
 
 import warnings
-import sys
-import os
-
-import matplotlib as mpl
-# mpl.use("pgf")
-# pgf_with_pdflatex = {"text.usetex": True, "pgf.texsystem": "pdflatex",
-                     # "pgf.preamble": [r"\usepackage{mathpazo}",
-                                      # r"\usepackage[utf8x]{inputenc}",
-                                      # r"\usepackage[T1]{fontenc}",
-                                      # r"\usepackage{amsmath}"],
-                     # "axes.labelsize": 8,
-                     # "font.family": "serif",
-                     # "font.serif":["Palatino"],
-                     # "font.size": 8,
-                     # "legend.fontsize": 8,
-                     # "xtick.labelsize": 8,
-                     # "ytick.labelsize": 8}
-# mpl.rcParams.update(pgf_with_pdflatex)
-import matplotlib.pyplot as plt
-# plt.style.use('seaborn')
-import seaborn as sns
-# sns.set_style({"font.family":"serif", "font.serif":["Palatino"]})
-
 import pandas as pd
 import pyactr as actr
 import math
@@ -35,20 +12,14 @@ import numpy as np
 import re
 import scipy.stats as stats
 import scipy
-
 import pymc as pm
 import arviz as az
 from pymc import Gamma, Normal, HalfNormal, Deterministic, Uniform
-# , find_MAP,Slice, sample, , Metropolis, traceplot, gelman_rubin
-
-# from pymc.backends.base import merge_traces
-# from pymc3.backends import Text
-# from pymc.backends.text import load
-# from pymc3.backends.text import dump
-
 import pytensor
 import pytensor.tensor as pt
 from pytensor.compile.ops import as_op
+import sys
+sys.path.insert(0, "../pyactr")
 import argparse
 warnings.filterwarnings("ignore")
 
