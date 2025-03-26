@@ -211,7 +211,7 @@ def run_stimulus(target, prime):
             estimated_time = -1
             break
     if trace_log:
-        print(f'Estimated RT= {estimated_time*1000} ms')
+        print(f'Estimated RT for prime "{prime}" and target "{target}" = {estimated_time*1000} ms')
     return estimated_time
 
 
@@ -369,9 +369,9 @@ def create_model(args):
         mu_rt = Deterministic('mu_rt', pyactr_rt)
         rt_observed = Normal('rt_observed', mu=mu_rt, sigma=0.01, observed=RT)
         # accuracy likelihood
-        # odds_reciprocal = pt.exp(-(activation_from_time - threshold) / noise)
-        # mu_prob = Deterministic('mu_prob', 1 / (1 + odds_reciprocal))
-        # prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
+        odds_reciprocal = pt.exp(-(activation_from_time - threshold) / noise)
+        mu_prob = Deterministic('mu_prob', 1 / (1 + odds_reciprocal))
+        prob_observed = Normal('prob_observed', mu=mu_prob, sigma=0.01, observed=ACCURACY)
 
     return lex_decision_with_bayes
 
