@@ -40,6 +40,9 @@ def args_parser():
     parser.add_argument('--tunes',
                         type=int,
                         default=1)
+    parser.add_argument('--sampling',
+                        type=str,
+                        default='SMC')
 
     args = parser.parse_args()
     return args
@@ -308,10 +311,14 @@ with lex_decision_with_bayes:
     num_chains = args.chains #4
     num_tunes = args.tunes #10000
 
-    # step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
-    # trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step,
-    #                   cores=args.chains)
-    trace = pm.sample_smc(draws=num_draws, chains=num_chains, cores=args.chains)
+    if args.sampling == "DEMetropolisZ":
+        step = pm.DEMetropolisZ(tune="scaling", proposal_dist=pm.NormalProposal)
+        trace = pm.sample(draws=num_draws, tune=num_tunes, chains=num_chains, step=step,
+                      cores=args.chains)
+    elif args.sampling == "SMC":
+        trace = pm.sample_smc(draws=num_draws, chains=num_chains, cores=args.chains)
+    else:
+        raise NotImplementedError
     print('trace=', trace)
     print('saving trace...')
     trace.to_netcdf(f'{args.root}/book_trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
