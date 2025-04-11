@@ -321,4 +321,4 @@ with lex_decision_with_bayes:
         raise NotImplementedError
     print('trace=', trace)
     print('saving trace...')
-    trace.to_netcdf(f'{args.root}/book_trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}.nc')
+    trace.to_netcdf(f'{args.root}/book_trace_draws={num_draws}_tune={num_tunes}_chains={num_chains}_sampling={args.sampling}.nc')
