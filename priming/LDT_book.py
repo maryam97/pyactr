@@ -1,6 +1,6 @@
 """
 A model of lexical decision: Bayes+ACT-R, with imaginal buffer;
-default delay for the imaginal buffer (200 ms)
+no delay for the imaginal buffer (delay of 0 ms)
 """
 
 import warnings
@@ -19,7 +19,8 @@ import pytensor
 import pytensor.tensor as pt
 from pytensor.compile.ops import as_op
 import sys
-sys.path.insert(0, "../pyactr")
+sys.path.insert(1, "../pyactr")
+print(actr.__file__)
 import argparse
 warnings.filterwarnings("ignore")
 
@@ -222,7 +223,7 @@ def run_stimulus(word):
                                                state='attend'))
     lex_decision.goals["imaginal"].add(actr.makechunk(nameofchunk='start',
                                                       typename="word"))
-    lex_decision.goals["imaginal"].delay = 0.2
+    lex_decision.goals["imaginal"].delay = 0.0
     environment.current_focus = [320,180]
     lex_decision.model_parameters['motor_prepared'] = True #everytime? why not in the beginning?
 
