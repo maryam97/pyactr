@@ -1,6 +1,6 @@
 """
 A model of lexical decision: Bayes+ACT-R, with imaginal buffer;
-default delay for the imaginal buffer (200 ms)
+no delay for the imaginal buffer (delay of 0 ms)
 """
 
 import warnings
@@ -37,7 +37,7 @@ class Model:
         actr.chunktype("goal", "state")
         self.dm = self.model.decmem
         self.g = self.model.goal
-        self.imaginal = self.model.set_goal(name="imaginal", delay=0.2)
+        self.imaginal = self.model.set_goal(name="imaginal", delay=0.0)
 
         visual, visual_location = self.model.visualBuffer("visual", "visual_location",
                                                      default_harvest=self.dm, finst=1)
@@ -170,7 +170,7 @@ def run_stimulus(target, prime):
     #                                            state='attend'))
     # model.goals["imaginal"].add(actr.makechunk(nameofchunk='start',
     #                                                   typename="word"))
-    # model.goals["imaginal"].delay = 0.2
+    # model.goals["imaginal"].delay = 0.0
 
     # prime_chunk = actr.makechunk(typename="meaning", word=prime)
     prime_model.dm.add(prime_chunks[prime])
@@ -180,8 +180,8 @@ def run_stimulus(target, prime):
     # self.g = self.model.goal
     prime_model.g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
 
-    # self.imaginal = self.model.set_goal(name="imaginal", delay=0.2)
-    prime_model.imaginal.delay = 0.2
+    # self.imaginal = self.model.set_goal(name="imaginal", delay=0.0)
+    prime_model.imaginal.delay = 0.0
     prime_model.imaginal.add(prime_chunks[prime])
 
     actr_env.current_focus = [320, 180]
