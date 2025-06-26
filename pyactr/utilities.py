@@ -499,7 +499,8 @@ def find_chunks(chunk, only_chunks=True):
                     chunk_dict[x[0]] = val
     return chunk_dict
 
-def calculate_strength_association(chunk, otherchunk, dm, strength_of_association, restricted='', only_chunks=True, activation_trace=False, embedding=None):
+def calculate_strength_association(chunk, otherchunk, dm, strength_of_association, restricted='', only_chunks=True,
+                                   activation_trace=False, embedding=None, neigh_cos=None):
     """
     Calculate S_{ji} = S - ln((1+slots_j)/slots_ij), where j=chunk, i=otherchunk
 
@@ -524,6 +525,14 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
         # if cosine_sim >= 0.0:
         #     print("cosine_sim=", cosine_sim)
         strength_of_association *= cosine_sim
+    if neigh_cos is not None:
+        if activation_trace:
+            print(f"avg_neigh_cos={neigh_cos}, strength_of_association={strength_of_association}")
+        # if strength_of_association < neigh_cos:
+        #     raise(ACTRError("strength_of_association should be larger than average neighboring cosines."))
+        strength_of_association = max(0.0, strength_of_association-neigh_cos)
+        if activation_trace:
+            print(f"strength_of_association after removing fan ={strength_of_association}")
 
     if chunk != otherchunk and chunk not in values and embedding is None:
         return 0
@@ -562,7 +571,7 @@ def calculate_strength_association(chunk, otherchunk, dm, strength_of_associatio
 
 
 def spreading_activation(chunk, buffers, dm, buffer_spreading_activation, strength, restricted=False, only_chunks=True,
-                         activation_trace=False, embedding=None):
+                         activation_trace=False, embedding=None, neigh_cos=None):
     """
     Calculate spreading activation.
 
@@ -579,10 +588,12 @@ def spreading_activation(chunk, buffers, dm, buffer_spreading_activation, streng
         for each in find_chunks(otherchunk, only_chunks).items():
             if restricted:
                 s_ji += calculate_strength_association(each[1], chunk, dm, strength, each[0], only_chunks,
-                                                       activation_trace=activation_trace, embedding=embedding)
+                                                       activation_trace=activation_trace,
+                                                       embedding=embedding, neigh_cos=neigh_cos)
             else:
                 s_ji += calculate_strength_association(each[1], chunk, dm, strength, only_chunks=only_chunks,
-                                                       activation_trace=activation_trace, embedding=embedding)
+                                                       activation_trace=activation_trace,
+                                                       embedding=embedding, neigh_cos=neigh_cos)
 
         SA += w_kj*s_ji
     return SA

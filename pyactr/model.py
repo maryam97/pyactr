@@ -43,6 +43,7 @@ class ACTRModel:
     "eye_mvt_angle_parameter": 1,
     "eye_mvt_scaling_parameter": 0.01,
     "embeddings": None,
+    "neigh_cos": None,
     }
 
     environment has to be an instantiation of the class Environment.
@@ -77,6 +78,7 @@ class ACTRModel:
                 "eye_mvt_angle_parameter": 1, #in LispACT-R: 1
                 "eye_mvt_scaling_parameter": 0.01, #in LispACT-R: 0.01, but dft rule firing -- 0.01
                 "embeddings": None,
+                "neigh_cos": None,
                 }
 
     def __init__(self, environment=None, data_path="../data", **model_parameters):
@@ -102,7 +104,7 @@ class ACTRModel:
 
         self.embeddings = self._read_embeddings()
 
-        start_retrieval = declarative.DecMemBuffer(embedding=self.embeddings)
+        start_retrieval = declarative.DecMemBuffer(embedding=self.embeddings, neigh_cos=self.model_parameters["neigh_cos"])
         self.retrievals = {"retrieval": start_retrieval}
         
         self.__buffers["retrieval"] = start_retrieval
@@ -341,4 +343,4 @@ class ACTRModel:
                 emb_dict = pickle.load(f)
             return emb_dict
         else:
-            return
+            return None
