@@ -190,7 +190,7 @@ class Model:
 
 
 def run_simulation(env, model, target):
-    stim = [{1: {'text': target, 'position': (150, 150)}}]
+    stim = [{1: {'text': target, 'position': (150, 150), 'vis_delay':len(target)}}] #vis_delay=n_char(target)
 
     # run new simulation
     sim = model.model.simulation(realtime=False, gui=False,
@@ -215,18 +215,21 @@ def run_simulation(env, model, target):
     return rt, key
 
 
-def experiments(mas, noise, pairs, neigh, embeddings, latency_factor, latency_exponent, decay, activations, spp_bins, data_path):
+def experiments(mas, noise, pairs, neigh, fan, embeddings, latency_factor, latency_exponent, decay, activations, 
+                spp_bins, data_path, emma):
     # env = actr.Environment(focus_position=(0, 0))
     results_df = pd.DataFrame(columns=['prime', 'target', 'predicted_rt', 'accuracy'])
     accuracy_accum = 0
-    neigh_cos = None
+    neigh_cos, num_fan = None, None
     for elem in pairs:
         # prime, target, neigh_cos = None, None, None
         if neigh:
             prime, target, neigh_cos = elem[0], elem[1], elem[2]
+        elif fan:
+            prime, target, num_fan = elem[0], elem[1], elem[2]
         else:
             prime, target = elem[0], elem[1]
-        print(f'prime: {prime}, target: {target}')
+        print(f'prime: {prime}, target: {target}, len(target): {len(target)}')
         bin = spp_bins[(spp_bins['prime'] == prime) & (spp_bins['target'] == target)]['bin_index'].item()
         target_activation = activations[bin]
 
@@ -248,10 +251,12 @@ def experiments(mas, noise, pairs, neigh, embeddings, latency_factor, latency_ex
                       activation_trace=True,
                       strict_harvesting=False,
                       retrieval_threshold=-80,
-                      instantaneous_noise=noise, emma=False,
+                      instantaneous_noise=noise,
                       embeddings=embeddings,
-                      neigh_cos=neigh_cos
-                      )
+                      neigh_cos=neigh_cos,
+                      fan=num_fan,
+                      emma=emma, 
+                      emma_noise=False)
         env = model.env
         rt, response = run_simulation(env=env, model=model, target=target)
         accuracy = response == "J"  # change if we have non-word targets
@@ -269,6 +274,7 @@ def get_activations(FREQ):
 
     def time_freq(freq):
         rehearsals = np.zeros((np.max(freq).astype(int) * 113, len(freq)))
+        print(f'rehearsals.shape={rehearsals.shape}')
         for i in np.arange(len(freq)):
             temp = np.arange((freq[i] * 112.5)).astype(int)
             temp = temp * np.array(SEC_IN_TIME / (freq[i] * 112.5)).astype(int)
@@ -287,7 +293,7 @@ def get_activations(FREQ):
     # activation_from_time = [-9.21181007, -8.93834678, -8.32109255, -8.173624, -7.9042454, -7.3922061,
     #  -7.19796136, -7.07670266, -6.66561281, -6.49680178, -6.30419527, -6.03986274,
     #  -5.72818052, -5.53672519, -5.1546272, -5.03540494]
-    activations = {f'q{i}': activation_from_time[i] for i in range(18)}  # only q0-q17
+    activations = {f'q{i}': activation_from_time[i] for i in range(max_bin)}  # only q0-qmax
     print("activations:", activations)
     return activations
 
@@ -298,56 +304,62 @@ def read_data(dataset_name):
     if 'prime' not in list(data.columns) or 'target' not in list(data.columns):
         assert NotImplementedError
     cols = ['prime', 'target']
-    neigh = False
+    neigh, fan = False, False
     if 'avg_neigh_cos' in list(data.columns):
         cols.append('avg_neigh_cos')
         neigh = True
+    elif 'fan' in list(data.columns):
+        cols.append('fan')
+        fan = True
     unique_prime_target_tuples = data[cols].drop_duplicates()
     pairs_list = list(unique_prime_target_tuples.itertuples(index=False, name=None))
 
-    return pairs_list, neigh
+    return pairs_list, neigh, fan
 
 
 if __name__ == "__main__":
     warnings.simplefilter("ignore")
-    mas = 5.0  # maximum association strength
+    mas = 4.0  # maximum association strength
     noise = 0.0
-    dataset_name = "spp_short_neigh" #"spp_short_rem"  # spp_short_rem for w2v
-    embeddings = 'spp_w2v' #'spp_bert_L1_std' #'spp_w2v'  # 'spp_bert_L0'
+    dataset_name = "spp_short_neigh" #"spp_short_fan" #"spp_short_neigh" #"spp_short_rem"  # spp_short_rem for w2v
+    embeddings = 'spp_bert_L1_std' #'spp_bert_L1_std' #'spp_w2v'  # 'spp_bert_L0'
     latency_factor = 0.379287  # default, 0.63
     lateny_exponent = 0.363791  # 1.0
     decay = 0.153496  # 0.5
-
+    max_bin = 100
+    emma = True
     data_path = "../data"
-    pairs, neigh = read_data(dataset_name=dataset_name)
+    pairs, neigh, fan = read_data(dataset_name=dataset_name)
     # data_path = args.data_path
     # Freq input
     # spp_freq = pd.read_csv(f'{data_path}/spp_freq.csv')
-    spp_bins = pd.read_csv(f'{data_path}/spp_bins.csv')
-    if neigh:
+    
+    spp_bins = pd.read_csv(f'{data_path}/spp_bins{str(max_bin)}.csv')
+    if neigh or fan:
         # Get the set of primes that exist in spp
         unique_primes = set([elem[0] for elem in pairs]) # all unique primes
         # Filter spp_short to keep only rows where the prime is in the set of primes from spp
         spp_bins = spp_bins[spp_bins['prime'].isin(unique_primes)].copy()
 
-    mean_freqs_sorted = {f'q{i}': spp_bins[spp_bins['bin_index'] == f'q{i}']['mean_freq'].iloc[0] for i in range(18)}
+    mean_freqs_sorted = {f'q{i}': spp_bins[spp_bins['bin_index'] == f'q{i}']['mean_freq'].iloc[0] for i in range(max_bin)} #mean_freq
     FREQ = list(mean_freqs_sorted.values())
     # FREQ = np.array(spp_bins['mean_freq'])
     activations = get_activations(FREQ)
-    results = experiments(mas=mas, noise=noise, pairs=pairs, neigh=neigh,
+    results = experiments(mas=mas, noise=noise, pairs=pairs, neigh=neigh, fan=fan,
                           embeddings=embeddings,
                           latency_factor=latency_factor,
                           latency_exponent=lateny_exponent,
                           decay=decay,
                           activations=activations,
                           spp_bins=spp_bins,
-                          data_path=data_path)
+                          data_path=data_path,
+                          emma=emma)
 
     real_rt = spp_bins['target.RT'].to_list()
     pred_rt = results['predicted_rt'].to_list()
     pred_rt = [rt * 1000 for rt in pred_rt]
-    print('spearmans correlation=', spearmanr(real_rt, pred_rt)[0])
-    results.to_csv(f'{data_path}/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}_le={lateny_exponent}_decay={decay}.csv')
+    print(f'spearmans correlation for {dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}_le={lateny_exponent}_decay={decay}_emma={emma} = ', spearmanr(real_rt, pred_rt)[0])
+    results.to_csv(f'{data_path}/results/{dataset_name}_{embeddings}_mas={mas}_lf={latency_factor}_le={lateny_exponent}_decay={decay}_emma={emma}.csv')
 
 
 
