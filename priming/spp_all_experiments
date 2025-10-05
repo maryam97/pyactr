@@ -1,0 +1,418 @@
+import warnings
+import sys
+sys.path.insert(0, "../pyactr")
+import pyactr as actr
+import simpy
+import re
+import pandas as pd
+import numpy as np
+from scipy.stats import spearmanr
+from sklearn.metrics import mean_squared_error
+import argparse
+import pickle
+import os
+
+SEC_IN_YEAR = 365*24*3600
+SEC_IN_TIME = 15*SEC_IN_YEAR
+
+def args_parser():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--dataset',
+                        type=str,
+                        default='spp_merged', 
+                        choices=['spp_merged','spp_bins100','spp_short_neigh', 'spp_short_rem'],
+                        help='Select dataset, spp_short_neigh includes average cosine of neighbors.'
+                        )
+    parser.add_argument('--embeddings',
+                        type=str,
+                        default=None,
+                        choices=['spp_w2v', 'spp_bert_L1_std', 'spp_bert_L0'],
+                        help='Select dataset')
+    parser.add_argument('--model',
+                        type=str,
+                        default='B1',
+                        choices=['B1', 'B2', 'B3', 'M1', 'M2', 'M3'],
+                        help='Select model')
+    parser.add_argument( '--mas',
+                        type=float,
+                        default=4.0,
+                        help='maximum association strength')
+    parser.add_argument( '--decay',
+                        type=float,
+                        default=0.153496,
+                        help='decay of chunk activation')
+    parser.add_argument( '--lf',
+                        type=float,
+                        default=0.379287,
+                        help='latency factor')
+    parser.add_argument( '--le',
+                        type=float,
+                        default=0.363791,
+                        help='latency exponent')
+    parser.add_argument( '--emma',
+                        type=bool,
+                        default=True,
+                        help='EMMA')
+
+    args = parser.parse_args()
+
+    if args.model in ['M1', 'M2', 'M3'] and args.embeddings is None:
+        parser.error("Embeddings are required when using model M1, M2, or M3.")
+
+    return args, parser
+
+
+class Model:
+
+    def __init__(self, prime, target, target_activation, data_path, **kwargs):
+        env = actr.Environment(focus_position=(0, 0))
+        self.model = actr.ACTRModel(environment=env, data_path=data_path, **kwargs)
+
+        actr.chunktype("meaning", "word")
+        actr.chunktype("goal", "state")
+
+        # dict_dm = {}
+        words = f"{prime} {target}".split()
+        self.dm = self.model.decmem
+        prime_chunk = actr.makechunk(typename="meaning", word=prime)
+        self.dm.add(prime_chunk)
+        target_chunk = actr.makechunk(typename="meaning", word=target)
+        self.dm.add(target_chunk)
+        if target_activation is not None:
+            activation_dict = {target_chunk: target_activation}
+            self.dm.activations.update(activation_dict)
+        self.dm = self.model.decmem  
+
+        g = self.model.goal
+        g.add(actr.makechunk(nameofchunk="beginning", typename="goal", state="start"))
+
+        self.imaginal = self.model.set_goal(name="imaginal", delay=0.2) # encode prime
+        self.imaginal.add(prime_chunk)
+        self.interm = self.model.set_goal(name="interm", delay=0.2) # an intermediate level: encode the target
+
+        self.env = env
+
+        visual, visual_location = self.model.visualBuffer("visual", "visual_location",
+                                                     default_harvest=self.dm, finst=1)
+
+        # 1. find the target word in the screen
+        self.model.productionstring(name="find target", string="""
+                                =g>
+                                    isa          goal
+                                    state        start
+                                ?visual_location>
+                                    buffer       empty
+                                ?manual>
+                                    state        free
+                            ==>
+                                =g>
+                                    isa         goal
+                                    state       attend
+                                ?visual_location>
+                                    attended    False
+                                +visual_location>
+                                    isa         _visuallocation
+                                    screen_x    closest        
+        """)
+
+        #2. attend the found target
+        self.model.productionstring(name="attend target", string="""
+                                =g>
+                                    isa         goal
+                                    state       attend
+                                =visual_location>
+                                    isa         _visuallocation
+                                ?visual>
+                                    state       free
+                            ==>
+                                =g>
+                                    isa         goal
+                                    state       encode
+                                +visual>
+                                    isa         _visual
+                                    cmd         move_attention
+                                    screen_pos  =visual_location
+        """)
+        self.model.productionstring(name="encode target", string="""
+                                =g> 
+                                    isa         goal
+                                    state       encode
+                                =visual>
+                                    isa         _visual
+                                    value       =val
+                                ?interm>
+                                    buffer      empty
+                                    state       free
+                            ==>
+                                =g>
+                                    isa         goal
+                                    state       retrieving
+                                +interm>
+                                    isa         meaning
+                                    word        =val
+        
+        """)
+
+        #3. try to retrieve the target word from dm
+        self.model.productionstring(name="retrieving", string="""
+                                =g>
+                                    isa         goal
+                                    state       retrieving
+                                =interm>
+                                    isa         meaning
+                                    word       =val
+                                ?retrieval>
+                                    state       free
+                            ==>
+                                =g>
+                                    isa         goal
+                                    state       retrieval_done
+                                +retrieval>
+                                    isa         meaning
+                                    word        =val
+        """)
+
+        #4. if successful: press J
+        self.model.productionstring(name="target retrieved", string="""
+                                =g>
+                                    isa         goal
+                                    state       retrieval_done
+                                ?retrieval>
+                                    buffer      full
+                                    state       free
+                                ?manual>
+                                    state       free
+                            ==>
+                                +manual>
+                                    isa         _manual
+                                    cmd         press_key
+                                    key         J
+                                =g>
+                                    isa         goal
+                                    state       start
+                                ~visual>
+                                ~visual_location>
+        """)
+
+
+        #5. if failed: press F
+        self.model.productionstring(name="target not found", string="""
+                                =g>
+                                    isa         goal
+                                    state       retrieval_done
+                                ?retrieval>
+                                    state       error
+                                ?manual>
+                                    state       free
+                            ==>
+                                +manual>
+                                    isa         _manual
+                                    cmd         press_key
+                                    key         F
+                                =g>
+                                    isa         goal
+                                    state       start
+                                ~visual>
+                                ~visual_location>
+        """)
+
+
+def run_simulation(env, model, target):
+    stim = [{1: {'text': target, 'position': (150, 150), 'vis_delay':len(target)}}] #vis_delay=n_char(target)
+
+    # run new simulation
+    sim = model.model.simulation(realtime=False, gui=False,
+                           environment_process=env.environment_process,
+                           stimuli=stim, triggers=[['J', 'F']], times=30, trace=True
+                           )
+    key = ""
+    rt = 0
+    while key == "":
+        try:
+            sim.step()
+        except simpy.core.EmptySchedule:
+            break
+        if re.search("^RULE FIRED:", str(sim.current_event.action)):
+            continue
+        if re.search("^RETRIEVED: None", str(sim.current_event.action)):
+            continue
+        if re.search("^KEY PRESSED:", str(sim.current_event.action)):
+            key = re.search(r".$", str(sim.current_event.action)).group()
+            rt = sim.show_time()
+    # response = key == "J"
+    return rt, key
+
+
+def experiments(mas, noise, pairs, emma, freq, cosine, fan, embeddings, latency_factor, latency_exponent, decay, activations, 
+                data, data_path):
+
+    results_df = pd.DataFrame(columns=['prime', 'target', 'predicted_rt', 'accuracy'])
+    accuracy_accum = 0
+    neigh_cos, target_activation = None, None
+    buffer_sprd_act = {}
+    act_trace, sprd_act_restricted, assoc_chunks= False, False, True
+    for elem in pairs:
+        if fan:
+            prime, target, neigh_cos = elem[0], elem[1], elem[2]
+        else:
+            prime, target = elem[0], elem[1]
+        if freq:
+            bin = data[(data['prime'] == prime) & (data['target'] == target)]['bin_index'].item()
+            target_activation = activations[bin]
+        if cosine:
+            buffer_sprd_act = {"imaginal": 1} # spread activation from the prime in the imaginal buffer
+            act_trace, sprd_act_restricted, assoc_chunks = True, True, False
+
+        model = Model(prime=prime, target=target,
+                      data_path=data_path,
+                      target_activation=target_activation,
+                      automatic_visual_search=False,
+                      motor_prepared=True,
+                      subsymbolic=True,
+                      latency_factor=latency_factor,
+                      latency_exponent=latency_exponent,
+                      decay=decay,
+                      strength_of_association=mas,
+                      buffer_spreading_activation=buffer_sprd_act,
+                      spreading_activation_restricted=sprd_act_restricted,
+                      association_only_from_chunks=assoc_chunks,
+                      activation_trace=act_trace,
+                      strict_harvesting=False,
+                      retrieval_threshold=-80,
+                      instantaneous_noise=noise,
+                      embeddings=embeddings,
+                      neigh_cos=neigh_cos,
+                      emma=emma, 
+                      emma_noise=False)
+        env = model.env
+        rt, response = run_simulation(env=env, model=model, target=target)
+        accuracy = response == "J"  # change if we have non-word targets
+        accuracy_accum += accuracy
+        print(f"Accuracy for ({prime},{target}) = {float(accuracy)}")
+        print(f"Reading time for the target `{target}` is {rt * 1000} (ms)")
+        # add results to df
+        target_rt = data[(data['prime'] == prime) & (data['target'] == target)]['target.RT'].item()
+        results = [{'prime': prime, 'target': target, 'target.RT':target_rt, 'predicted_rt': rt, 'accuracy': accuracy}]
+        results_df = pd.concat([results_df, pd.DataFrame(results)], ignore_index=True)
+
+    return results_df
+
+
+def get_activations(FREQ):
+
+    def time_freq(freq):
+        rehearsals = np.zeros((np.max(freq).astype(int) * 113, len(freq)))
+        print(f'rehearsals.shape={rehearsals.shape}')
+        for i in np.arange(len(freq)):
+            temp = np.arange((freq[i] * 112.5)).astype(int)
+            temp = temp * np.array(SEC_IN_TIME / (freq[i] * 112.5)).astype(int)
+            rehearsals[:len(temp), i] = temp
+        return rehearsals.T
+
+    time = time_freq(FREQ)
+    scaled_time = time ** (-decay)
+
+    def compute_activation(scaled_time_vector):
+        subvector = scaled_time_vector[~np.isinf(scaled_time_vector)]
+        return np.log(subvector.sum())
+
+    activation_from_time = [ compute_activation(row) for row in scaled_time]
+    print('activation_from_time:', activation_from_time)
+
+    activations = {f'q{i}': activation_from_time[i] for i in range(max_bin)}  # only q0-qmax
+    print("activations:", activations)
+    return activations
+
+
+def read_data(dataset, fan, data_path):
+
+    data = pd.read_csv(f'{data_path}/{dataset}.csv', index_col=0)
+    if 'prime' not in list(data.columns) or 'target' not in list(data.columns):
+        assert NotImplementedError
+    cols = ['prime', 'target']
+
+    if fan: # Exclude the pairs whose fans are missing
+        spp_neigh = pd.read_csv(f'{data_path}/spp_short_neigh.csv')
+        data = pd.merge(data, spp_neigh, on=['prime', 'target', 'target.RT'], how='outer')
+        cols.append('avg_neigh_cos')
+
+    unique_prime_target_tuples = data[cols].drop_duplicates()
+    pairs_list = list(unique_prime_target_tuples.itertuples(index=False, name=None))
+
+    return pairs_list, data
+
+
+if __name__ == "__main__":
+    warnings.simplefilter("ignore")
+    args, parser = args_parser()
+    noise = 0.0
+    max_bin = 100
+    mas, decay, latency_factor, lateny_exponent = args.mas, args.decay, args.lf, args.le
+    dataset, embeddings = args.dataset, args.embeddings
+    data_path = "../data"
+    emma, freq, cosine, fan = False, False, False, False
+    activations = None
+    if args.model == 'B1': # Baseline1: freq
+        print("Only use Frequency.")
+        freq = True
+    elif args.model == 'B2': # Baseline2: emma
+        print("Only use EMMA.")
+        emma = True
+    elif args.model == 'B3': # Baseline3: freq, emma
+        print("Use both Frequency and EMMA.")
+        emma, freq = True, True
+    elif args.model == 'M1': # Our model1: Cosine
+        print("Only use Cosine values.")
+        cosine = True
+    elif args.model == 'M2': # Our model2: Cosine + B3
+        print("Use EMMA, Frequency, and Cosine.")
+        emma, freq, cosine = True, True, True
+    elif args.model == 'M3': # Our model3: Cosine + B3 + fan
+        print("Use EMMA, Frequency, Cosine, and Fan.")
+        emma, freq, cosine, fan = True, True, True, True
+
+    pairs, data = read_data(dataset=dataset, fan=fan, data_path=data_path)
+    if freq:
+        mean_freqs_sorted = {f'q{i}': data[data['bin_index'] == f'q{i}']['mean_freq'].iloc[0] for i in range(max_bin)} #mean_freq
+        FREQ = list(mean_freqs_sorted.values())
+        activations = get_activations(FREQ)
+    
+    results = experiments(mas=mas, noise=noise, pairs=pairs, 
+                          emma=emma, freq=freq, cosine=cosine, fan=fan,
+                          embeddings=embeddings,
+                          latency_factor=latency_factor,
+                          latency_exponent=lateny_exponent,
+                          decay=decay,
+                          activations=activations,
+                          data=data,
+                          data_path=data_path)
+
+    model_details = f'model_{args.model}'
+    if cosine: model_details += f'_{embeddings}_mas={mas}'
+
+    real_rt = results['target.RT']
+    pred_rt = results['predicted_rt']
+    mse = mean_squared_error(real_rt/1000, pred_rt)
+    print(f'MSE for {model_details}=', mse)
+    pred_rt = [rt * 1000 for rt in pred_rt.to_list()]
+    spearman_rts = spearmanr(real_rt.to_list(), pred_rt)[0]
+    print(f'spearmans correlation for {model_details}=', spearman_rts)
+    results = pd.merge(results, data, on=['prime', 'target', 'target.RT'], how='outer')
+    results.to_csv(f'{data_path}/results/{model_details}.csv')
+    filename = f'{data_path}/results/all_results.pkl'
+    all_results = {}
+    if os.path.exists(filename):
+        with open(filename, 'rb') as f:
+            all_results = pickle.load(f)
+        print(f"Dictionary loaded from {filename}")
+
+    all_results[model_details] = [spearman_rts, mse]
+    with open(filename, 'wb') as f:
+        print(f"Dictionary saved!")
+        pickle.dump(all_results, f)
+
+    # all_results_df = pd.DataFrame(all_results, columns=['Model', 'Spearman Corr', 'MSE'])
+    # all_results_df.to_csv(f'{data_path}/results/all_results_df.csv')
+    
+
