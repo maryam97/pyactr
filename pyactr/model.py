@@ -44,6 +44,7 @@ class ACTRModel:
     "eye_mvt_scaling_parameter": 0.01,
     "embeddings": None,
     "neigh_cos": None,
+    "fan": None
     }
 
     environment has to be an instantiation of the class Environment.
@@ -79,6 +80,7 @@ class ACTRModel:
                 "eye_mvt_scaling_parameter": 0.01, #in LispACT-R: 0.01, but dft rule firing -- 0.01
                 "embeddings": None,
                 "neigh_cos": None,
+                "fan": None,
                 }
 
     def __init__(self, environment=None, data_path="../data", **model_parameters):
@@ -104,7 +106,9 @@ class ACTRModel:
 
         self.embeddings = self._read_embeddings()
 
-        start_retrieval = declarative.DecMemBuffer(embedding=self.embeddings, neigh_cos=self.model_parameters["neigh_cos"])
+        start_retrieval = declarative.DecMemBuffer(embedding=self.embeddings,
+                                                   neigh_cos=self.model_parameters["neigh_cos"],
+                                                   fan=self.model_parameters["fan"])
         self.retrievals = {"retrieval": start_retrieval}
         
         self.__buffers["retrieval"] = start_retrieval
